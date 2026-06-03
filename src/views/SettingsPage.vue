@@ -15,6 +15,8 @@ const loading = ref(false);
 const networkStatus = ref<NetworkStatus | null>(null);
 const loginResult = ref<LoginResult | null>(null);
 
+const activeTab = ref<"account" | "connection">("account");
+
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 async function refreshStatusLoop() {
@@ -103,15 +105,45 @@ onUnmounted(() => {
       <span v-if="networkStatus.is_tust_network" class="tag tust">校园网</span>
     </div>
 
-    <!-- Credentials Form -->
-    <div class="section">
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'account' }"
+        @click="activeTab = 'account'"
+      >
+        账号
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'connection' }"
+        @click="activeTab = 'connection'"
+      >
+        连接
+      </button>
+    </div>
+
+    <!-- Tab: Account -->
+    <div v-if="activeTab === 'account'" class="section">
       <label class="label">用户名</label>
-      <input v-model="username" type="text" class="input" placeholder="学号/工号" autocomplete="username" />
+      <input
+        v-model="username"
+        type="text"
+        class="input"
+        placeholder="学号/工号"
+        autocomplete="username"
+      />
 
       <label class="label">密码</label>
-      <input v-model="password" type="password" class="input" placeholder="校园网密码" autocomplete="current-password" />
+      <input
+        v-model="password"
+        type="password"
+        class="input"
+        placeholder="校园网密码"
+        autocomplete="current-password"
+      />
 
-      <label class="label">网络类型</label>
+      <label class="label">运营商</label>
       <select v-model="networkType" class="input">
         <option value="校园网">校园网</option>
         <option value="中国联通">中国联通</option>
@@ -121,26 +153,83 @@ onUnmounted(() => {
         <button class="btn primary" @click="handleSave">保存凭据</button>
         <span v-if="saved" class="saved-hint">已保存</span>
       </div>
-    </div>
 
-    <!-- Actions -->
-    <div class="section">
-      <div class="btn-row">
-        <button class="btn" :class="{ primary: !loading }" @click="handleLogin" :disabled="loading">
+      <div class="btn-row" style="margin-top: 12px">
+        <button
+          class="btn"
+          :class="{ primary: !loading }"
+          @click="handleLogin"
+          :disabled="loading"
+        >
           {{ loading ? "登录中..." : "手动登录" }}
         </button>
-        <button class="btn" :class="{ active: paused }" @click="togglePause">
-          {{ paused ? "恢复自动登录" : "暂停自动登录" }}
-        </button>
-        <button class="btn" :class="{ active: ignoreSsid }" @click="toggleIgnoreSsid">
-          {{ ignoreSsid ? "恢复SSID检测" : "忽略SSID" }}
-        </button>
+      </div>
+
+      <!-- Login Result -->
+      <div
+        v-if="loginResult"
+        class="result"
+        :class="{ success: loginResult.success, error: !loginResult.success }"
+      >
+        {{ loginResult.message }}
       </div>
     </div>
 
-    <!-- Login Result -->
-    <div v-if="loginResult" class="result" :class="{ success: loginResult.success, error: !loginResult.success }">
-      {{ loginResult.message }}
+    <!-- Tab: Connection -->
+    <div v-if="activeTab === 'connection'" class="section">
+      <div class="toggle-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">自动登录</span>
+            <span class="toggle-desc">{{ paused ? "已暂停" : "运行中" }}</span>
+          </div>
+          <button
+            class="toggle-switch"
+            :class="{ on: !paused }"
+            @click="togglePause"
+          >
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">忽略 SSID 检测</span>
+            <span class="toggle-desc">
+              {{ ignoreSsid ? "任意网络下尝试登录" : "仅 TUST / 10.x 网络下登录" }}
+            </span>
+          </div>
+          <button
+            class="toggle-switch"
+            :class="{ on: ignoreSsid }"
+            @click="toggleIgnoreSsid"
+          >
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="status-details" v-if="networkStatus">
+        <div class="detail-row">
+          <span class="detail-key">WiFi SSID</span>
+          <span class="detail-val">{{ networkStatus.wifi_ssid || "—" }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">IPv4</span>
+          <span class="detail-val">{{ networkStatus.local_ipv4 || "—" }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">IPv6</span>
+          <span class="detail-val">{{ networkStatus.local_ipv6 || "—" }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">校园网</span>
+          <span class="detail-val">
+            <span class="status-dot" :class="{ online: networkStatus.is_tust_network }"></span>
+            {{ networkStatus.is_tust_network ? "已连接" : "未连接" }}
+          </span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -159,6 +248,8 @@ onUnmounted(() => {
   text-align: center;
 }
 
+/* -- Status Bar -- */
+
 .status-bar {
   display: flex;
   align-items: center;
@@ -175,6 +266,7 @@ onUnmounted(() => {
   height: 8px;
   border-radius: 50%;
   background: #ccc;
+  flex-shrink: 0;
 }
 
 .status-dot.online {
@@ -201,15 +293,41 @@ onUnmounted(() => {
   color: #999;
 }
 
-.section {
+/* -- Tab Bar -- */
+
+.tab-bar {
+  display: flex;
+  border-bottom: 2px solid #eee;
   margin-bottom: 16px;
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+.tab-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover {
+  color: #555;
+}
+
+.tab-btn.active {
+  color: #1976d2;
+  border-bottom-color: #1976d2;
+}
+
+/* -- Section -- */
+
+.section {
+  margin-bottom: 16px;
 }
 
 .label {
@@ -253,6 +371,8 @@ select.input {
   }
 }
 
+/* -- Buttons -- */
+
 .btn-row {
   display: flex;
   gap: 8px;
@@ -283,17 +403,6 @@ select.input {
   background: #1565c0;
 }
 
-.btn.active {
-  background: #ff9800;
-  color: #fff;
-  border-color: #ff9800;
-}
-
-.btn.sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
 .btn:disabled {
   opacity: 0.6;
   cursor: default;
@@ -304,11 +413,13 @@ select.input {
   color: #4caf50;
 }
 
+/* -- Login Result -- */
+
 .result {
   padding: 10px 14px;
   border-radius: 6px;
   font-size: 13px;
-  margin-bottom: 16px;
+  margin-top: 12px;
 }
 
 .result.success {
@@ -319,5 +430,181 @@ select.input {
 .result.error {
   background: #ffebee;
   color: #c62828;
+}
+
+/* -- Toggle Switch -- */
+
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.toggle-row:first-child {
+  padding-top: 0;
+}
+
+.toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.toggle-desc {
+  font-size: 12px;
+  color: #999;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border: none;
+  border-radius: 13px;
+  background: #ccc;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.toggle-switch.on {
+  background: #1976d2;
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.on .toggle-knob {
+  transform: translateX(18px);
+}
+
+/* -- Status Details -- */
+
+.status-details {
+  margin-top: 20px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.detail-row + .detail-row {
+  border-top: 1px solid #eee;
+}
+
+.detail-key {
+  color: #888;
+}
+
+.detail-val {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #333;
+}
+
+/* -- Dark Mode -- */
+
+@media (prefers-color-scheme: dark) {
+  .status-bar {
+    background: #2a2a2a;
+  }
+
+  .tab-bar {
+    border-bottom-color: #333;
+  }
+
+  .tab-btn {
+    color: #888;
+  }
+
+  .tab-btn:hover {
+    color: #bbb;
+  }
+
+  .tab-btn.active {
+    color: #64b5f6;
+    border-bottom-color: #64b5f6;
+  }
+
+  .label {
+    color: #aaa;
+  }
+
+  .input {
+    background: #333;
+    color: #ccc;
+    border-color: #555;
+  }
+
+  .input:focus {
+    border-color: #64b5f6;
+  }
+
+  .btn {
+    background: #333;
+    color: #ccc;
+    border-color: #555;
+  }
+
+  .btn:hover {
+    background: #444;
+  }
+
+  .btn.primary {
+    background: #1976d2;
+    color: #fff;
+    border-color: #1976d2;
+  }
+
+  .toggle-row {
+    border-bottom-color: #2a2a2a;
+  }
+
+  .toggle-label {
+    color: #ddd;
+  }
+
+  .status-details {
+    background: #2a2a2a;
+  }
+
+  .detail-row + .detail-row {
+    border-top-color: #333;
+  }
+
+  .detail-val {
+    color: #ccc;
+  }
 }
 </style>

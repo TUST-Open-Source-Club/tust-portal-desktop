@@ -5,8 +5,9 @@ use crate::sign_in;
 use crate::store::credentials::{read_credentials, Credentials};
 use crate::AppState;
 
-pub(crate) async fn try_auto_login(creds: &Credentials) -> bool {
+pub(crate) async fn try_auto_login(client: &reqwest::Client, creds: &Credentials) -> bool {
     match sign_in::try_login(
+        client,
         creds.username.clone(),
         creds.password.clone(),
         creds.network_type.clone(),
@@ -40,7 +41,7 @@ pub(crate) fn start_background_loop(app_handle: tauri::AppHandle) {
                 continue;
             }
 
-            if !needs_login().await {
+            if !needs_login(&state.http_client).await {
                 continue;
             }
 
@@ -58,7 +59,7 @@ pub(crate) fn start_background_loop(app_handle: tauri::AppHandle) {
                 continue;
             }
 
-            if try_auto_login(&creds).await {
+            if try_auto_login(&state.http_client, &creds).await {
                 tracing::info!(frontend = true, message = "自动登录成功");
             }
         }

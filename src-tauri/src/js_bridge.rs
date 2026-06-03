@@ -15,8 +15,9 @@ pub(crate) async fn try_login(
     username: String,
     password: String,
     network_type: String,
+    state: State<'_, AppState>,
 ) -> Result<sign_in::LoginResult, String> {
-    sign_in::try_login(username, password, network_type).await
+    sign_in::try_login(&state.http_client, username, password, network_type).await
 }
 
 // -- Network status --

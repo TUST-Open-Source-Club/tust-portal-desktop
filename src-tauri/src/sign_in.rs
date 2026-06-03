@@ -12,6 +12,7 @@ pub struct LoginResult {
 }
 
 pub(crate) async fn do_login(
+    client: &reqwest::Client,
     username: &str,
     password: &str,
     network_type: &str,
@@ -39,11 +40,6 @@ pub(crate) async fn do_login(
     );
 
     tracing::info!(frontend = true, message = "正在发送登录请求...");
-
-    let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("创建HTTP客户端失败: {}", e))?;
 
     let resp = client
         .get(&url)
@@ -85,6 +81,7 @@ pub(crate) async fn do_login(
 }
 
 pub(crate) async fn try_login(
+    client: &reqwest::Client,
     username: String,
     password: String,
     network_type: String,
@@ -93,7 +90,7 @@ pub(crate) async fn try_login(
         if attempt > 1 {
             tracing::info!(frontend = true, message = %format!("--- 第{}次重试 ---", attempt));
         }
-        match do_login(&username, &password, &network_type).await {
+        match do_login(client, &username, &password, &network_type).await {
             Ok(()) => {
                 return Ok(LoginResult {
                     success: true,

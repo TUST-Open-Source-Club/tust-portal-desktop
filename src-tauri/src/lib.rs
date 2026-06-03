@@ -23,12 +23,19 @@ pub struct AppState {
     pub ignore_ssid: Mutex<bool>,
     pub logs: LogBuffer,
     pub quitting: Mutex<bool>,
+    pub http_client: reqwest::Client,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let log_buffer = create_log_buffer();
     init_tracing(log_buffer.clone());
+
+    let http_client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Failed to create HTTP client");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -37,6 +44,7 @@ pub fn run() {
             ignore_ssid: Mutex::new(false),
             logs: log_buffer,
             quitting: Mutex::new(false),
+            http_client,
         })
         .invoke_handler(tauri::generate_handler![
             try_login,

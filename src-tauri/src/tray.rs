@@ -19,17 +19,18 @@ fn show_or_create_settings(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         bring_to_front(&window);
     } else {
-        tauri::WebviewWindowBuilder::new(
+        let w = tauri::WebviewWindowBuilder::new(
             app,
             "main",
             tauri::WebviewUrl::App("index.html#/settings".into()),
         )
         .title("天科大校园网自动登录")
-        .inner_size(520.0, 400.0)
-        .resizable(true)
+        .inner_size(520.0, 600.0)
+        .resizable(false)
         .center()
         .build()
         .unwrap();
+        bring_to_front(&w);
     }
 }
 
@@ -40,17 +41,17 @@ fn show_or_create_logs(app: &AppHandle) {
         let w = tauri::WebviewWindowBuilder::new(
             app,
             "logs",
-            tauri::WebviewUrl::App("index.html".into()),
+            tauri::WebviewUrl::App("index.html#/logs".into()),
         )
         .title("日志")
-        .inner_size(520.0, 480.0)
+        .inner_size(520.0, 560.0)
         .resizable(true)
         .visible(false)
+        .resizable(false)
         .center()
         .build()
         .unwrap();
-        w.eval("window.location.hash = '#/logs'").ok();
-        w.show().ok();
+        bring_to_front(&w);
     }
 }
 
@@ -63,7 +64,8 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
                 match creds {
                     Some(ref c) if !c.username.is_empty() && !c.password.is_empty() => {
                         tracing::info!(frontend = true, message = "菜单触发登录");
-                        background::try_auto_login(c).await;
+                        let client = handle.state::<AppState>().http_client.clone();
+                        background::try_auto_login(&client, c).await;
                     }
                     _ => {
                         tracing::info!(frontend = true, message = "触发登录失败: 未保存凭据");
@@ -75,12 +77,15 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             let state = app.state::<AppState>();
             let mut paused = state.auto_login_paused.lock().unwrap();
             *paused = !*paused;
-            let msg = if *paused {
+            let is_paused = *paused;
+            drop(paused);
+            let msg = if is_paused {
                 "自动登录已暂停"
             } else {
                 "自动登录已恢复"
             };
             tracing::info!(frontend = true, message = msg);
+            rebuild_tray_menu(app, is_paused);
         }
         "logs" => {
             show_or_create_logs(app);

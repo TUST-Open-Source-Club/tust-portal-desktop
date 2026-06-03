@@ -12,15 +12,7 @@ pub struct NetworkStatus {
     pub is_tust_network: bool,
 }
 
-pub async fn needs_login() -> bool {
-    let client = match reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-    {
-        Ok(c) => c,
-        Err(_) => return true,
-    };
-
+pub async fn needs_login(client: &reqwest::Client) -> bool {
     match client
         .get("http://connectivitycheck.gstatic.com/generate_204")
         .timeout(Duration::from_secs(5))
