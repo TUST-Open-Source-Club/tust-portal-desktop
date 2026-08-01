@@ -32,6 +32,15 @@ xattr -cr /Applications/TustPortal.app
 
 ### 前置依赖
 
+#### Windows
+
+- [Rust](https://www.rust-lang.org/) (stable)
+- [Node.js](https://nodejs.org/) >= 18
+- [pnpm](https://pnpm.io/)
+- [Visual Studio Build Tools](https://visualstudio.microsoft.com/zh-hans/downloads/)，安装时勾选「使用 C++ 的桌面开发」工作负载
+
+#### macOS
+
 - [Rust](https://www.rust-lang.org/) (stable)
 - [Node.js](https://nodejs.org/) >= 18
 - [pnpm](https://pnpm.io/)
@@ -45,6 +54,9 @@ pnpm install
 
 # 启动开发模式（热更新）
 pnpm tauri dev
+
+# 仅启动 Vite 前端开发服务器
+pnpm dev
 
 # 构建生产版本
 pnpm tauri build
@@ -77,7 +89,7 @@ src-tauri/src/        # 后端 (Rust)
 ├── log_system.rs     # 日志系统
 ├── js_bridge.rs      # Tauri 命令 bridge
 ├── store/            # 凭据 & 设置持久化
-└── platform/         # 平台相关实现 (macOS)
+└── platform/         # 平台相关实现 (macOS / Windows)
 ```
 
 ### 登录流程

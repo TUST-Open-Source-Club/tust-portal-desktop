@@ -69,9 +69,9 @@ pub fn run() {
 
             background::start_background_loop(app.handle().clone());
 
-            // Destroy the initial hidden window — recreated on demand via tray
+            // Keep the initial window hidden — shown on demand via tray
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.close();
+                let _ = window.hide();
             }
 
             Ok(())
