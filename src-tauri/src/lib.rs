@@ -2,7 +2,10 @@ use std::sync::Mutex;
 use tauri::Manager;
 use tauri::State;
 
+#[cfg(target_os = "windows")]
+mod auto_start;
 mod background;
+mod first_launch;
 mod js_bridge;
 mod log_system;
 mod network_info;
@@ -12,9 +15,11 @@ mod store;
 mod tray;
 
 use js_bridge::{
-    check_network_status, get_auto_login_paused, get_ignore_ssid, get_logs, load_credentials,
-    load_settings, save_credentials, set_auto_login_paused, set_ignore_ssid, try_login,
+    check_network_status, get_auto_login_paused, get_auto_start_enabled, get_ignore_ssid,
+    get_logs, get_platform, load_credentials, load_settings, save_credentials,
+    set_auto_login_paused, set_auto_start_enabled, set_ignore_ssid, try_login,
 };
+use store::credentials::read_credentials;
 use log_system::{create_log_buffer, init_tracing, LogBuffer};
 use store::settings::read_settings;
 
@@ -57,6 +62,9 @@ pub fn run() {
             set_auto_login_paused,
             get_ignore_ssid,
             set_ignore_ssid,
+            get_platform,
+            get_auto_start_enabled,
+            set_auto_start_enabled,
         ])
         .setup(|app| {
             // Restore persisted settings
@@ -69,9 +77,18 @@ pub fn run() {
 
             background::start_background_loop(app.handle().clone());
 
-            // Destroy the initial hidden window — recreated on demand via tray
+            // Destroy the initial hidden window unless it's a Windows first launch
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.close();
+                let has_creds = read_credentials(app.handle()).is_some();
+                #[cfg(target_os = "windows")]
+                let platform = "windows";
+                #[cfg(target_os = "macos")]
+                let platform = "macos";
+                if !first_launch::should_show_window_on_startup(has_creds, platform) {
+                    let _ = window.close();
+                } else {
+                    let _ = window.show();
+                }
             }
 
             Ok(())

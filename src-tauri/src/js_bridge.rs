@@ -1,5 +1,7 @@
 use tauri::{AppHandle, Manager, State};
 
+#[cfg(target_os = "windows")]
+use crate::auto_start;
 use crate::log_system::LogEntry;
 use crate::network_info::{self, NetworkStatus};
 use crate::sign_in;
@@ -106,4 +108,53 @@ pub(crate) fn get_ignore_ssid(state: State<'_, AppState>) -> bool {
 pub(crate) fn set_ignore_ssid(ignore: bool, app_handle: AppHandle, state: State<'_, AppState>) {
     *state.ignore_ssid.lock().unwrap() = ignore;
     settings::save_ignore_ssid(&app_handle, ignore).ok();
+}
+
+// -- Platform --
+
+#[tauri::command]
+pub(crate) fn get_platform() -> String {
+    get_platform_impl()
+}
+
+#[cfg(target_os = "windows")]
+fn get_platform_impl() -> String {
+    "windows".to_string()
+}
+
+#[cfg(target_os = "macos")]
+fn get_platform_impl() -> String {
+    "macos".to_string()
+}
+
+// -- Auto-Start (Windows only) --
+
+#[tauri::command]
+pub(crate) fn get_auto_start_enabled() -> Result<bool, String> {
+    get_auto_start_enabled_impl()
+}
+
+#[cfg(target_os = "windows")]
+fn get_auto_start_enabled_impl() -> Result<bool, String> {
+    Ok(auto_start::is_enabled())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_auto_start_enabled_impl() -> Result<bool, String> {
+    Err("Auto-start is only supported on Windows".to_string())
+}
+
+#[tauri::command]
+pub(crate) fn set_auto_start_enabled(enabled: bool) -> Result<(), String> {
+    set_auto_start_enabled_impl(enabled)
+}
+
+#[cfg(target_os = "windows")]
+fn set_auto_start_enabled_impl(enabled: bool) -> Result<(), String> {
+    auto_start::set_enabled(enabled)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_auto_start_enabled_impl(_enabled: bool) -> Result<(), String> {
+    Err("Auto-start is only supported on Windows".to_string())
 }

@@ -3,6 +3,8 @@ import { ref, onMounted, onUnmounted } from "vue";
 import { loadCredentials, saveCredentials } from "@/native/store";
 import { refreshStatus, setAutoLoginPaused, setIgnoreSsid } from "@/native/network_state";
 import { tryLogin } from "@/native/login";
+import { getPlatform } from "@/native/platform";
+import { getAutoStartEnabled, setAutoStartEnabled } from "@/native/auto_start";
 import type { NetworkStatus, LoginResult } from "@/native/types";
 
 const username = ref("");
@@ -14,6 +16,9 @@ const ignoreSsid = ref(false);
 const loading = ref(false);
 const networkStatus = ref<NetworkStatus | null>(null);
 const loginResult = ref<LoginResult | null>(null);
+const platform = ref("");
+const autoStartEnabled = ref(false);
+const showFirstRunModal = ref(false);
 
 const activeTab = ref<"account" | "connection">("account");
 
@@ -77,9 +82,42 @@ async function toggleIgnoreSsid() {
   await setIgnoreSsid(ignoreSsid.value);
 }
 
+async function handleAutoStartToggle() {
+  autoStartEnabled.value = !autoStartEnabled.value;
+  try {
+    await setAutoStartEnabled(autoStartEnabled.value);
+  } catch (e: any) {
+    autoStartEnabled.value = !autoStartEnabled.value;
+    alert(typeof e === "string" ? e : "设置开机自启失败");
+  }
+}
+
+async function dismissFirstRun(enable: boolean) {
+  showFirstRunModal.value = false;
+  autoStartEnabled.value = enable;
+  try {
+    await setAutoStartEnabled(enable);
+  } catch (e) {
+    // ignore
+  }
+}
+
 onMounted(async () => {
   await initCredentials();
   await refreshStatusLoop();
+
+  platform.value = await getPlatform();
+  if (platform.value === "windows") {
+    try {
+      autoStartEnabled.value = await getAutoStartEnabled();
+    } catch (e) {
+      autoStartEnabled.value = false;
+    }
+    if (!saved.value) {
+      showFirstRunModal.value = true;
+    }
+  }
+
   pollTimer = setInterval(async () => {
     await refreshStatusLoop();
   }, 3000);
@@ -92,6 +130,18 @@ onUnmounted(() => {
 
 <template>
   <div class="app">
+    <!-- First Run Modal -->
+    <div v-if="showFirstRunModal" class="modal-overlay">
+      <div class="modal">
+        <h2 class="modal-title">欢迎使用 TustPortal</h2>
+        <p class="modal-body">是否开启开机自动启动？</p>
+        <div class="modal-actions">
+          <button class="btn primary" @click="dismissFirstRun(true)">是</button>
+          <button class="btn" @click="dismissFirstRun(false)">否</button>
+        </div>
+      </div>
+    </div>
+
     <h1 class="title">天科大校园网自动登录</h1>
 
     <!-- Network Status Bar -->
@@ -187,6 +237,22 @@ onUnmounted(() => {
             class="toggle-switch"
             :class="{ on: !paused }"
             @click="togglePause"
+          >
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
+
+        <div class="toggle-row" v-if="platform === 'windows'">
+          <div class="toggle-info">
+            <span class="toggle-label">开机自动启动</span>
+            <span class="toggle-desc">
+              {{ autoStartEnabled ? "登录 Windows 时自动启动" : "手动启动应用" }}
+            </span>
+          </div>
+          <button
+            class="toggle-switch"
+            :class="{ on: autoStartEnabled }"
+            @click="handleAutoStartToggle"
           >
             <span class="toggle-knob"></span>
           </button>
@@ -605,6 +671,54 @@ select.input {
 
   .detail-val {
     color: #ccc;
+  }
+}
+
+/* -- Modal -- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.modal-body {
+  font-size: 14px;
+  color: #555;
+  margin: 0 0 16px 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal {
+    background: #2a2a2a;
+    color: #ccc;
+  }
+  .modal-body {
+    color: #aaa;
   }
 }
 </style>

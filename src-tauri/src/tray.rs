@@ -55,6 +55,17 @@ fn show_or_create_logs(app: &AppHandle) {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn handle_tray_click(tray_icon: &tauri::tray::TrayIcon, event: tauri::tray::TrayIconEvent) {
+    if let tauri::tray::TrayIconEvent::Click {
+        button: tauri::tray::MouseButton::Left,
+        ..
+    } = event
+    {
+        show_or_create_settings(tray_icon.app_handle());
+    }
+}
+
 fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
         "trigger_login" => {
@@ -103,6 +114,7 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
 }
 
 pub(crate) fn build_tray(app: &mut tauri::App) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
     let trigger_item = MenuItemBuilder::with_id("trigger_login", "触发登录").build(app)?;
@@ -123,13 +135,17 @@ pub(crate) fn build_tray(app: &mut tauri::App) -> tauri::Result<()> {
         .item(&quit_item)
         .build()?;
 
-    TrayIconBuilder::with_id("main-tray")
+    let builder = TrayIconBuilder::with_id("main-tray")
         .icon(app.default_window_icon().unwrap().clone())
         .icon_as_template(true)
         .tooltip("天科大校园网自动登录")
         .menu(&menu)
-        .on_menu_event(handle_menu_event)
-        .build(app)?;
+        .on_menu_event(handle_menu_event);
+
+    #[cfg(target_os = "windows")]
+    let builder = builder.on_tray_icon_event(handle_tray_click);
+
+    builder.build(app)?;
 
     Ok(())
 }
